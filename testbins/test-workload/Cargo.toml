@@ -1,0 +1,15 @@
+[package]
+name = "test-workload"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+# It can be useful to put an empty [workspace] section in the Cargo.toml
+# for these test binaries, so that Cargo knows not to look in parent
+# directories.
+[workspace]
+
+[dependencies]
+clap = { version = "4.1.11", features = ["derive"] }
+mmap-rs = "0.5.0"
