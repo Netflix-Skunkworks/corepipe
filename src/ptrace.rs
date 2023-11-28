@@ -8,8 +8,6 @@
 use std::{io, mem::size_of};
 
 use libc::{c_long, user_regs_struct, PTRACE_GETREGSET, user_fpregs_struct};
-#[cfg(target_arch = "x86_64")]
-use libelf_sys::NT_X86_XSTATE;
 use log::{debug, trace, warn};
 use nix::{
     errno::{self, errno, Errno},
@@ -187,6 +185,8 @@ pub fn ptrace_get_regset_size(task: &Task) -> Result<Option<usize>, Errno> {
 /// Load x86_xstate register information from ptrace
 #[cfg(target_arch = "x86_64")]
 pub fn ptrace_get_regset(task: &Task) -> Result<Option<Vec<u8>>, Errno> {
+    use libelf_sys::NT_X86_XSTATE;
+
     trace!("ptrace_get_regset x86_64 for task: {}", task.tid);
 
     let mut x86state = vec![0; ptrace_get_regset_size(task)?.unwrap_or(0)];
