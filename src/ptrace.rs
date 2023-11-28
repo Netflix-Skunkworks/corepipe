@@ -28,9 +28,6 @@ use crate::{
     byte_helpers::siginfo_to_bytes,
 };
 
-#[cfg(target_arch = "x86_64")]
-use crate::bindings::X86_XSTATE_MAX_SIZE;
-
 #[derive(Error, Debug)]
 pub enum PtraceError {
     #[error("unable to perform nix syscall")]
@@ -174,21 +171,30 @@ pub fn ptrace_get_regset(task: &Task) -> Result<Option<Vec<u8>>, Errno> {
 
 #[cfg(target_arch = "x86_64")]
 pub fn ptrace_get_regset_size(task: &Task) -> Result<Option<usize>, Errno> {
-    trace!("ptrace_get_regset_size x86_64 for task: {}", task.tid);
-    Ok(ptrace_get_regset(task)?.map(|r| r.len()))
+    use once_cell::sync::Lazy;
+    use raw_cpuid::CpuId;
+
+    let xsave_size = Lazy::new(|| {
+        trace!("ptrace_get_regset_size x86_64 for task: {} (will be cached)", task.tid);
+
+        let cpuid = CpuId::new();
+        Some(cpuid.get_extended_state_info().map(|f| f.xsave_area_size_enabled_features()).unwrap() as usize)
+    });
+
+    Ok(*xsave_size)
 }
 
 /// Load x86_xstate register information from ptrace
 #[cfg(target_arch = "x86_64")]
 pub fn ptrace_get_regset(task: &Task) -> Result<Option<Vec<u8>>, Errno> {
     trace!("ptrace_get_regset x86_64 for task: {}", task.tid);
-    let mut x86state: [u8; X86_XSTATE_MAX_SIZE as usize] = [0; X86_XSTATE_MAX_SIZE as usize];
+
+    let mut x86state = vec![0; ptrace_get_regset_size(task)?.unwrap_or(0)];
     let mut iovec = libc::iovec {
         iov_base: x86state.as_mut_ptr() as *mut libc::c_void,
         iov_len: x86state.len(),
     };
 
-    // out of sympathy for GETFPREGS (see ptrace_get_fpregset)
     let ptrace_res: c_long =
         unsafe { libc::ptrace(PTRACE_GETREGSET, task.tid, NT_X86_XSTATE, &mut iovec) };
     let e: i32 = errno();

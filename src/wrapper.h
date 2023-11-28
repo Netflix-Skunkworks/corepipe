@@ -4,4 +4,3 @@
 #include <unistd.h>
 
 #include "include/google-coredumper.h"
-#include "include/gdb-state-size.h"
