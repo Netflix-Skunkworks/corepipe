@@ -16,7 +16,6 @@ fn main() {
         .header("src/wrapper.h")
         .allowlist_type("elf_siginfo")
         .allowlist_type("elf_timeval")
-        .allowlist_type("fpregs")
         .allowlist_type("i386_regs")
         .allowlist_type("prpsinfo")
         .allowlist_type("prstatus")

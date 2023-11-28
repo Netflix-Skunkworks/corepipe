@@ -7,11 +7,12 @@ use std::collections::HashMap;
 use std::io::{self, BufWriter, Write};
 use std::mem::size_of;
 
-use crate::bindings::{fpregs, prpsinfo, prstatus};
+use crate::bindings::{prpsinfo, prstatus};
 use crate::byte_helpers::*;
 use crate::process_memory::ProcessMemory;
 use crate::smaps::SmapRange;
 use fallible_streaming_iterator::FallibleStreamingIterator;
+use libc::user_fpregs_struct;
 use libelf_sys::*;
 use log::{debug, info, trace, warn};
 
@@ -370,7 +371,7 @@ pub fn create_program_header_note_section(
     // NT_PRSTATUS
     notesize += num_tasks * (SIZEOF_NHDR + NAMESZ + align_4(size_of::<prstatus>()));
     // NT_FPREGSET
-    notesize += num_tasks * (SIZEOF_NHDR + NAMESZ + align_4(size_of::<fpregs>()));
+    notesize += num_tasks * (SIZEOF_NHDR + NAMESZ + align_4(size_of::<user_fpregs_struct>()));
     // NT_X86_XSTATE / general registers
     if let Some(size) = register_size {
         notesize += num_tasks * (SIZEOF_NHDR + NAMESZ + align_4(size));

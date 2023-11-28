@@ -7,7 +7,7 @@
 
 use std::{io, mem::size_of};
 
-use libc::{c_long, user_regs_struct, PTRACE_GETREGSET};
+use libc::{c_long, user_regs_struct, PTRACE_GETREGSET, user_fpregs_struct};
 #[cfg(target_arch = "x86_64")]
 use libelf_sys::NT_X86_XSTATE;
 use log::{debug, trace, warn};
@@ -24,7 +24,7 @@ use procfs::process::{Process, Task};
 use thiserror::Error;
 
 use crate::{
-    bindings::{elf_siginfo, fpregs},
+    bindings::{elf_siginfo},
     byte_helpers::siginfo_to_bytes,
 };
 
@@ -91,7 +91,7 @@ pub fn ptrace_getregs(tid: Pid) -> Result<user_regs_struct, Errno> {
 /// Load fpregset register information from ptrace
 pub fn ptrace_get_fpregset(task: &Task) -> Result<Vec<u8>, Errno> {
     trace!("ptrace_get_fpregset for tid: {}", task.tid);
-    const FPREGS_SIZE: usize = size_of::<fpregs>();
+    const FPREGS_SIZE: usize = size_of::<user_fpregs_struct>();
     let mut fpregs: [u8; FPREGS_SIZE] = [0; FPREGS_SIZE];
     let mut data = io::IoSliceMut::new(&mut fpregs);
 
