@@ -19,7 +19,6 @@ fn main() {
         .allowlist_type("i386_regs")
         .allowlist_type("prpsinfo")
         .allowlist_type("prstatus")
-        .allowlist_var("X86_XSTATE_MAX_SIZE")
         // Tell cargo to invalidate the built crate whenever any of the
         // included header files changed.
         .parse_callbacks(Box::new(bindgen::CargoCallbacks))

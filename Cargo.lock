@@ -280,6 +280,7 @@ dependencies = [
  "predicates",
  "procfs",
  "rand",
+ "raw-cpuid",
  "scan_fmt",
  "simple_logger",
  "subprocess",
@@ -856,6 +857,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
 dependencies = [
  "getrandom",
+]
+
+[[package]]
+name = "raw-cpuid"
+version = "11.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9d86a7c4638d42c44551f4791a20e687dbb4c3de1f33c43dd71e355cd429def1"
+dependencies = [
+ "bitflags 2.0.2",
 ]
 
 [[package]]
