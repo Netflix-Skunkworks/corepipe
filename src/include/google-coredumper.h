@@ -101,19 +101,3 @@ typedef struct prstatus {       /* Information about thread; includes CPU reg*/
   regs           pr_reg;        /* CPU registers                             */
   uint32_t       pr_fpvalid;    /* True if math co-processor being used      */
 } prstatus;
-
-typedef struct fpregs {     /* FPU registers                             */
-    uint16_t  cwd;
-    uint16_t  swd;
-    uint16_t  twd;
-    uint16_t  fop;
-    uint32_t  fip;
-    uint32_t  fcs;
-    uint32_t  foo;
-    uint32_t  fos;
-    uint32_t  mxcsr;
-    uint32_t  mxcsr_mask;
-    uint32_t  st_space[32];     /*  8*16 bytes for each FP-reg  = 128 bytes  */
-    uint32_t  xmm_space[64];    /* 16*16 bytes for each XMM-reg = 128 bytes  */
-    uint32_t  padding[24];
-} fpregs;
