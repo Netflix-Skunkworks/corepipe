@@ -7,23 +7,28 @@ use std::collections::HashMap;
 use std::io::{self, BufWriter, Write};
 use std::mem::size_of;
 
-use crate::bindings::{prpsinfo, prstatus};
+use crate::linux::Prpsinfo;
 use crate::byte_helpers::*;
 use crate::process_memory::ProcessMemory;
 use crate::smaps::SmapRange;
 use fallible_streaming_iterator::FallibleStreamingIterator;
-use libc::user_fpregs_struct;
 use libelf_sys::*;
 use log::{debug, info, trace, warn};
 
 // Special ELF-file text values
-const NOTE_NAME_CORE: &[u8; 8] = b"CORE\0\0\0\0";
-const NOTE_NAME_LINUX: &[u8; 8] = b"LINUX\0\0\0";
+pub const NOTE_NAME_CORE: &[u8; 8] = b"CORE\0\0\0\0";
+pub const NOTE_NAME_LINUX: &[u8; 8] = b"LINUX\0\0\0";
 
-#[cfg(target_arch = "x86_64")]
-const ELF_MACHINE_ID: Elf64_Half = EM_X86_64 as Elf64_Half;
-#[cfg(target_arch = "x86_64")]
-const ELF_MACHINE_REGISTER_NOTE_TYPE: Elf64_Word = NT_X86_XSTATE;
+pub struct ElfNote<'a> {
+    pub note_name: &'a [u8; 8],
+    pub note_type: u32,
+    pub description: Vec<u8>,
+    pub friendly: &'a str,
+}
+
+pub struct ElfNoteSpec {
+    pub size: usize,
+}
 
 /// Determine the size for a note name;
 ///
@@ -69,6 +74,7 @@ fn should_dump_range(range: &SmapRange) -> bool {
     match range.pathname.as_deref() {
         Some("[vdso]") => return true,
         Some("[vsyscall]") => return true,
+        Some("[stack]") => return true,
         Some(x) if x.is_empty() => return true,
         Some(x) if x.contains("(deleted)") => return true,
         None => return true,
@@ -80,13 +86,22 @@ fn should_dump_range(range: &SmapRange) -> bool {
         return true;
     }
 
-    // everything else left behind
-    false
+    // everything else left behind, but only on x86
+    #[cfg(target_arch = "x86_64")]
+    let result = false;
+
+    // TODO why does ARM need more of this info in order to construct state?
+    //      what is missing above?
+    #[cfg(target_arch = "aarch64")]
+    let result = true;
+
+    result
 }
 
 /// Write an ELF Ehdr
 pub fn write_elf_header(
     smaps: &[SmapRange],
+    machine_id: Elf64_Half,
     output: &mut impl io::Write,
 ) -> Result<(), std::io::Error> {
     let num_load_sections = smaps.iter().filter(|r| should_dump_range(r)).count() as u16;
@@ -111,7 +126,7 @@ pub fn write_elf_header(
     let ehdr: Elf64_Ehdr = Elf64_Ehdr {
         e_ident: ident,
         e_type: ET_CORE as Elf64_Half,
-        e_machine: ELF_MACHINE_ID,
+        e_machine: machine_id,
         e_version: EV_CURRENT,
         e_entry: 0,
         e_phoff: size_of::<Elf64_Ehdr>() as Elf64_Off, /* start immediately after Ehdr */
@@ -130,60 +145,20 @@ pub fn write_elf_header(
     Ok(())
 }
 
-/// Write a simple structured ELF note, including header, contents, and padding.
-fn write_simple_note(
-    note_name: &[u8; 8],
-    note_type: u32,
-    note_description: &[u8],
+pub fn write_note(
+    note: &ElfNote,
     output: &mut impl io::Write,
 ) -> Result<(), std::io::Error> {
     output.write_all(nhdr_to_bytes(&Elf64_Nhdr {
-        n_namesz: note_name_size(note_name),
-        n_descsz: note_description.len() as Elf64_Word,
-        n_type: note_type,
+        n_namesz: note_name_size(note.note_name),
+        n_descsz: note.description.len() as Elf64_Word,
+        n_type: note.note_type,
     }))?;
-    output.write_all(note_name)?;
-    output.write_all(note_description)?;
-    pad_to_4(note_description.len(), output)?;
+    output.write_all(note.note_name)?;
+    output.write_all(&note.description)?;
+    pad_to_4(note.description.len(), output)?;
 
     Ok(())
-}
-
-/// Write a NT_PRSTATUS note
-pub fn write_note_prstatus(
-    prs: prstatus,
-    output: &mut impl io::Write,
-) -> Result<(), std::io::Error> {
-    write_simple_note(NOTE_NAME_CORE, NT_PRSTATUS, prstatus_to_bytes(&prs), output)
-}
-
-/// Write a NT_FPREGSET note
-pub fn write_note_fpregset(
-    fpregs: Vec<u8>,
-    output: &mut impl io::Write,
-) -> Result<(), std::io::Error> {
-    write_simple_note(NOTE_NAME_CORE, NT_FPREGSET, &fpregs, output)
-}
-
-/// Write a general register note
-pub fn write_note_regset(
-    registers: Vec<u8>,
-    output: &mut impl io::Write,
-) -> Result<(), std::io::Error> {
-    write_simple_note(
-        NOTE_NAME_LINUX,
-        ELF_MACHINE_REGISTER_NOTE_TYPE,
-        &registers,
-        output,
-    )
-}
-
-/// Write a NT_SIGINFO note
-pub fn write_note_siginfo(
-    siginfo: Vec<u8>,
-    output: &mut impl io::Write,
-) -> Result<(), std::io::Error> {
-    write_simple_note(NOTE_NAME_CORE, NT_SIGINFO, &siginfo, output)
 }
 
 /// Write note NT_AUXV
@@ -197,20 +172,12 @@ pub fn write_note_auxv(
         description.extend(u64::to_ne_bytes(*val));
     }
 
-    write_simple_note(NOTE_NAME_CORE, NT_AUXV, &description, output)
-}
-
-/// Write note NT_PRPSINFO
-pub fn write_note_prpsinfo(
-    procfs_info: prpsinfo,
-    output: &mut impl io::Write,
-) -> Result<(), std::io::Error> {
-    write_simple_note(
-        NOTE_NAME_CORE,
-        NT_PRPSINFO,
-        prpsinfo_to_bytes(&procfs_info),
-        output,
-    )
+    write_note(&ElfNote {
+        note_name: NOTE_NAME_CORE,
+        note_type: NT_AUXV,
+        description: description,
+        friendly: "thread auxv",
+    }, output)
 }
 
 /// Write note NT_FILE for memory mapped files
@@ -302,7 +269,7 @@ pub fn write_program_header(
     smaps: &[SmapRange],
     auxv_table: &HashMap<u64, u64>,
     num_tasks: usize,
-    register_size: Option<usize>,
+    note_specs: Vec<ElfNoteSpec>,
     output: &mut impl io::Write,
 ) -> Result<(), std::io::Error> {
     let mut phdrs = Vec::new();
@@ -313,7 +280,7 @@ pub fn write_program_header(
         smaps,
         auxv_table,
         num_tasks,
-        register_size,
+        note_specs,
     ));
     for range in smaps.iter().filter(|r| should_dump_range(r)) {
         phdrs.push(create_program_header_load_section(range));
@@ -336,7 +303,7 @@ pub fn create_program_header_note_section(
     smaps: &[SmapRange],
     auxv_table: &HashMap<u64, u64>,
     num_tasks: usize,
-    register_size: Option<usize>,
+    note_specs: Vec<ElfNoteSpec>,
 ) -> Elf64_Phdr {
     const NAMESZ: usize = 8;
     const SIZEOF_NHDR: usize = size_of::<Elf64_Nhdr>();
@@ -367,17 +334,12 @@ pub fn create_program_header_note_section(
     let mut notesize = 0;
 
     // NT_PRPSINFO
-    notesize += SIZEOF_NHDR + NAMESZ + align_4(size_of::<prpsinfo>());
-    // NT_PRSTATUS
-    notesize += num_tasks * (SIZEOF_NHDR + NAMESZ + align_4(size_of::<prstatus>()));
-    // NT_FPREGSET
-    notesize += num_tasks * (SIZEOF_NHDR + NAMESZ + align_4(size_of::<user_fpregs_struct>()));
-    // NT_X86_XSTATE / general registers
-    if let Some(size) = register_size {
-        notesize += num_tasks * (SIZEOF_NHDR + NAMESZ + align_4(size));
+    notesize += SIZEOF_NHDR + NAMESZ + align_4(size_of::<Prpsinfo>());
+
+    for spec in note_specs {
+        notesize += num_tasks * SIZEOF_NHDR + NAMESZ + align_4(spec.size);
     }
-    // NT_SIGINFO
-    notesize += num_tasks * (SIZEOF_NHDR + NAMESZ + align_4(size_of::<libc::siginfo_t>()));
+
     // NT_AUXV
     notesize += SIZEOF_NHDR + NAMESZ + align_4(auxv_table.len() * size_of::<Elf64_auxv_t>());
     // NT_FILE

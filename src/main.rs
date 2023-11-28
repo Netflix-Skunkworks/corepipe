@@ -3,25 +3,32 @@
 #[macro_use]
 extern crate scan_fmt;
 
-mod bindings;
 mod byte_helpers;
-mod process_info;
+mod linux;
 mod process_memory;
 mod ptrace;
 mod smaps;
 mod sysconf;
 mod write_elf;
 
-use crate::bindings::prpsinfo;
-use crate::process_info::load_prstatus_for_task;
+#[cfg_attr(target_arch = "aarch64", path="elfmachine_aarch64.rs")]
+#[cfg_attr(target_arch = "x86_64", path="elfmachine_x86_64.rs")]
+mod elfmachine;
+
+use crate::byte_helpers::prpsinfo_to_bytes;
+use crate::linux::Prpsinfo;
+use crate::elfmachine::collect_per_task_note_specs;
 use crate::smaps::SmapRange;
+use crate::write_elf::{ElfNote, NOTE_NAME_CORE};
 use anyhow::Context;
 use clap::Parser;
-use log::{debug, info};
+use libelf_sys::NT_PRPSINFO;
+use log::{debug, info, trace};
 use nix::unistd::Pid;
 use process_memory::ProcessMemory;
+use procfs::ProcError;
 use procfs::process::Process;
-use std::io;
+use std::{io, cmp};
 use sysconf::load_sysconfs;
 
 #[derive(Parser, Debug)]
@@ -34,7 +41,7 @@ struct Args {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     simple_logger::SimpleLogger::new()
-        .with_level(log::LevelFilter::Info)
+        .with_level(log::LevelFilter::Trace)
         .env()
         .init()
         .unwrap();
@@ -63,17 +70,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         smaps::read_smaps(nixpid).context("could not parse /proc//smaps")?;
     let process = Process::new(pid)?;
     let auxv_table = process.auxv().context("error reading auxv table")?;
-    let procfs_info = prpsinfo::try_from(&process).context("error building prpsinfo")?;
+    let procfs_info = Prpsinfo::try_from(&process).context("error building prpsinfo")?;
     let count_tasks = process
         .tasks()
         .context("failed counting process tasks")?
         .count();
-    let general_register_size = ptrace::ptrace_get_regset_size(
-        &process
-            .task_main_thread()
-            .context("failed to read task_main_thread for pid")?,
-    )
-    .context("should be able to read register state")?;
+    let specs = collect_per_task_note_specs(&process)?;
 
     info!("emitting ELF headers...");
 
@@ -81,42 +83,40 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
      * this captures the core file structure at a high level
      * https://www.gabriel.urdhr.fr/2015/05/29/core-file
      */
-    write_elf::write_elf_header(&smaps, output).context("should have written elf header")?;
+    write_elf::write_elf_header(&smaps, elfmachine::ELF_MACHINE_ID, output).context("should have written elf header")?;
     write_elf::write_program_header(
         &smaps,
         &auxv_table,
         count_tasks,
-        general_register_size,
+        specs,
         output,
     )
     .context("should have written program header")?;
-    write_elf::write_note_prpsinfo(procfs_info, output).context("should have written prpsinfo")?;
+
+    write_elf::write_note(
+        &ElfNote {
+            note_name: NOTE_NAME_CORE,
+            note_type: NT_PRPSINFO,
+            description: prpsinfo_to_bytes(&procfs_info).to_vec(),
+            friendly: "process prpsinfo",
+        }, output)
+        .context("should have written prpsinfo")?;
 
     for task in process
         .tasks()
         .context("failed reading process tasks")?
         .flatten()
     {
-        debug!("writing headers for thread {}...", task.tid);
+        let tid = task.tid;
+        debug!("writing headers for thread {}...", tid);
 
-        let fp_registers = ptrace::ptrace_get_fpregset(&task)
-            .context("should be able to read fpregset for thread")?;
-        let general_registers =
-            ptrace::ptrace_get_regset(&task).context("should be able to read regset for thread")?;
-        let regs = ptrace::ptrace_getregs(Pid::from_raw(task.tid))
-            .context("should have been able to read registers for thread")?;
-        let prs = load_prstatus_for_task(&task, regs)
-            .context("should have been able to read proc/stat and proc/status for thread")?;
-        let siginfo = ptrace::ptrace_getsiginfo(&task);
+        let notes = elfmachine::collect_task_notes(&task)?;
 
-        write_elf::write_note_prstatus(prs, output)
-            .context("could not write note thread prstatus")?;
-        write_elf::write_note_fpregset(fp_registers, output)
-            .context("could not write thread fpregset")?;
-        if let Some(regs) = general_registers {
-            write_elf::write_note_regset(regs, output).context("could not write thread regset")?;
+        for note in notes {
+            let friendly = note.friendly;
+            let ctx = format!("could not write {friendly} for {tid}");
+            write_elf::write_note(&note, output).context(ctx)?;
         }
-        write_elf::write_note_siginfo(siginfo, output).context("could not write thread siginfo")?;
     }
 
     write_elf::write_note_auxv(auxv_table, output).context("could not write auxv notes")?;
@@ -132,4 +132,57 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // all done!
     Ok(())
+}
+
+impl TryFrom<&Process> for Prpsinfo {
+    /// Load prpsinfo struct information from /proc contents
+    fn try_from(process: &Process) -> Result<Self, ProcError> {
+        trace!("prpsinfo::try_from loading process {}", process.pid);
+
+        let proc_stat = process.stat()?;
+        let proc_status = process.status()?;
+
+        let mut proc_stat_info = Prpsinfo {
+            pr_pid: proc_stat.pid,
+            pr_sname: proc_stat.state as libc::c_char,
+            pr_ppid: proc_stat.ppid,
+            pr_pgrp: proc_stat.pgrp,
+            pr_sid: proc_stat.session,
+            pr_flag: proc_stat.flags as u64,
+            pr_nice: proc_stat.nice as i8,
+
+            pr_uid: proc_status.ruid,
+            pr_gid: proc_status.rgid,
+
+            // we are going to mark it as running, because we forced a stop, which means the
+            // state is always in trace stop so state will always be t (tracing stop)
+            // we set it to running because .. what else can we do?
+            pr_zomb: 0,
+            pr_state: 0,
+
+            pr_fname: [0; 16],
+            pr_psargs: [0; 80],
+        };
+
+        let process_name = proc_status.name;
+
+        let name_len = process_name.len();
+        for (i, &byte) in process_name.as_bytes()[0..cmp::min(name_len, 15)]
+            .iter()
+            .enumerate()
+        {
+            proc_stat_info.pr_fname[i] = byte as libc::c_char;
+        }
+
+        for (i, &byte) in process_name.as_bytes()[0..cmp::min(name_len, 79)]
+            .iter()
+            .enumerate()
+        {
+            proc_stat_info.pr_psargs[i] = byte as libc::c_char;
+        }
+
+        Ok(proc_stat_info)
+    }
+
+    type Error = ProcError;
 }

@@ -7,7 +7,7 @@ use std::io;
 use libc::siginfo_t;
 use libelf_sys::*;
 
-use crate::bindings::{prpsinfo, prstatus};
+use crate::linux::{Prpsinfo, Prstatus};
 
 /// Round up a value to 4's.
 ///
@@ -50,14 +50,14 @@ pub fn phdr_to_bytes(phdr: &Elf64_Phdr) -> &[u8] {
 /// Represent a prstatus as bytes for ELF file.
 ///
 /// This is a view over the underlying struct.
-pub fn prstatus_to_bytes(prstatus: &prstatus) -> &[u8] {
+pub fn prstatus_to_bytes(prstatus: &Prstatus) -> &[u8] {
     unsafe { any_as_u8_slice(prstatus) }
 }
 
 /// Represent a prpsinfo as bytes for ELF file.
 ///
 /// This is a view over the underlying struct.
-pub fn prpsinfo_to_bytes(prpsinfo: &prpsinfo) -> &[u8] {
+pub fn prpsinfo_to_bytes(prpsinfo: &Prpsinfo) -> &[u8] {
     unsafe { any_as_u8_slice(prpsinfo) }
 }
 

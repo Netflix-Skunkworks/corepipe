@@ -7,7 +7,10 @@ use std::{
 
 use assert_cmd::Command;
 use elf::{abi::ET_CORE, endian::AnyEndian, ElfBytes};
+#[cfg(target_arch="x86_64")]
 use libelf_sys::EM_X86_64;
+#[cfg(target_arch="aarch64")]
+use libelf_sys::EM_AARCH64;
 use subprocess::{Exec, PopenError};
 
 #[test]
@@ -77,7 +80,10 @@ fn test_sleep_output_is_parseable() {
 
     // what should we find?
     assert_eq!(ET_CORE, elf_file.ehdr.e_type);
+    #[cfg(target_arch="x86_64")]
     assert_eq!(EM_X86_64, elf_file.ehdr.e_machine as u32);
+    #[cfg(target_arch="aarch64")]
+    assert_eq!(EM_AARCH64, elf_file.ehdr.e_machine as u32);
 
     assert!(elf_file.ehdr.e_phnum > 1);
     assert_eq!(0, elf_file.ehdr.e_shnum);
