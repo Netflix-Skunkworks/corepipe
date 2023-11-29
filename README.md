@@ -94,16 +94,17 @@ Testing and PRs welcome for other platforms.
 
 This has been built and tested on x86 linux. To extend this to other archs,
 at least the following will be required:
-- Implement the appropriate ptrace register implementations (ptrace.rs) so
-  that the stashed task CPU registers are pulled correctly from the thread.
-- Update `google-coredumper.h` for conditional compilation, as it currently
-  only includes headers for i386. `gdb-state-size.h` might also need some
-  values.
-- Provide the appropriate flag IDs (`write_elf.rs`) so that the correct NT_
-  note entry will be created in the ELF output file.
-- If necessary, there may be other updates required such as to program
-  header sizes, more registers. If this becomes especially complicated for
-  some archs then a better abstraction is likely needed.
+- Most of the machine-specific code is in `elfmachine_x86_64.rs` or the
+  equivalent. Start by taking a look here, as this defines the notes that
+  will be created in the ELF file which represent the specific memory
+  regions such as CPU registers for dumping.
+- Create a copy of the file, name it appropriately, and reference it from
+  main.rs.
+- It will likely need to use the ptrace APIs to read register fields. If so
+  implement these.
+- Search for other locations for cfg `target_arch` flags to ensure, such
+  as test cases and other overrides. You might need to provide a custom
+  result.
 
 ## Contributing
 
