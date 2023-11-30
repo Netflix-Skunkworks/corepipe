@@ -1,0 +1,31 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install libelf and gdb
+      run: sudo apt-get install -y libelf-dev libelf1 gdb
+    - name: Set up hugepages
+      run: sudo sh -c "echo 200 > /proc/sys/vm/nr_hugepages"
+
+    - name: Build
+      run: cargo build
+
+    - name: Run tests
+      run: cargo test
+    - name: Run integration tests
+      run: sudo -E /home/${USER}/.cargo/bin/cargo test --no-fail-fast -- --include-ignored

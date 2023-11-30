@@ -7,12 +7,14 @@ use std::{
 };
 
 use assert_cmd::Command;
+use ntest::timeout;
 use rand::Rng;
 use tempfile::NamedTempFile;
 use test_binary::build_test_binary;
 
 #[test]
 #[ignore]
+#[timeout(20000)]
 fn test_can_read_stack() -> Result<(), io::Error> {
     let test_bin_path =
         build_test_binary("test-workload", "testbins").expect("error building test-workload");
@@ -77,6 +79,7 @@ fn test_can_read_stack() -> Result<(), io::Error> {
 
 #[test]
 #[ignore]
+#[timeout(20000)]
 fn test_can_read_heap() -> Result<(), io::Error> {
     let test_bin_path =
         build_test_binary("test-workload", "testbins").expect("error building test-workload");
@@ -106,6 +109,9 @@ fn test_can_read_heap() -> Result<(), io::Error> {
         NamedTempFile::new().expect("could not write coredump to temp file");
     tmpfile.write_all(&output.stdout)?;
     let tmpfile_name = tmpfile.path().as_os_str();
+
+    eprintln!("test_bin = {test_bin_path:?}");
+    eprintln!("tmpfile_name = {tmpfile_name:?}");
 
     let gdb_result = Command::new("gdb")
         .arg(test_bin_path)

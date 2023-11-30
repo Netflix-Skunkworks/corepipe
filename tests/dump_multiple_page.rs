@@ -8,11 +8,13 @@ use std::{
 };
 
 use assert_cmd::Command;
+use ntest::timeout;
 use tempfile::NamedTempFile;
 use test_binary::build_test_binary;
 
 #[test]
 #[ignore]
+#[timeout(20000)]
 fn test_can_read_large_page() -> Result<(), io::Error> {
     let test_bin_path =
         build_test_binary("test-workload", "testbins").expect("error building test-workload");
@@ -85,6 +87,7 @@ fn test_can_read_large_page() -> Result<(), io::Error> {
 
 #[test]
 #[ignore]
+#[timeout(20000)]
 fn test_cannot_read_dont_dump_page() -> Result<(), io::Error> {
     let test_bin_path =
         build_test_binary("test-workload", "testbins").expect("error building test-workload");
