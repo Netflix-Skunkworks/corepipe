@@ -175,7 +175,7 @@ pub fn write_note_auxv(
     write_note(&ElfNote {
         note_name: NOTE_NAME_CORE,
         note_type: NT_AUXV,
-        description: description,
+        description,
         friendly: "thread auxv",
     }, output)
 }

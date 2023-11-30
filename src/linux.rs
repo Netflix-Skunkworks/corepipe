@@ -194,6 +194,6 @@ pub fn load_prstatus_for_task(task: &Task, regs: user_regs_struct) -> Result<Prs
         pr_cursig: elf_siginfo.si_signo as u32,
         pr_fpvalid: 0,
         pr_info: elf_siginfo,
-        pr_reg: regs.clone(),
+        pr_reg: regs,
     })
 }
