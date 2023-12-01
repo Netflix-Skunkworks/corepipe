@@ -1,0 +1,67 @@
+name: Build linux
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install libelf and gdb
+      run: sudo apt-get install -y libelf-dev libelf1 gdb
+
+    - name: Set up hugepages
+      run: sudo sh -c "echo 200 > /proc/sys/vm/nr_hugepages"
+
+    - name: Build
+      run: cargo build
+
+    - name: Run tests
+      run: cargo test
+
+    - name: Run integration tests x86_64
+      run: sudo -E /home/${USER}/.cargo/bin/cargo test --no-fail-fast -- --include-ignored
+
+  build-for-aarch64:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            corepipe/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: build in arm64 container
+        uses: uraimo/run-on-arch-action@v2.6.0
+        with:
+          arch: aarch64
+          distro: ubuntu22.04
+          githubToken: ${{ github.token }}
+          install: |
+            apt-get update -q -y
+            apt-get upgrade -y
+            apt-get install -q -y git curl rust-all libelf-dev libelf1 gdb gcc
+          run: |
+            cargo build
+            cargo test
+            cargo test --no-fail-fast -- --include-ignored
+
+

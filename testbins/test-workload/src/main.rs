@@ -65,7 +65,7 @@ fn main() {
 fn loop_on_stack(_magic: i32) {
     eprintln!("loop_on_stack with magic value: {}", _magic);
     loop {
-        thread::yield_now();
+        thread::sleep_ms(10);
     }
 }
 
@@ -74,7 +74,7 @@ fn loop_on_stack(_magic: i32) {
 fn loop_on_heap(_magic: Box<i32>) {
     eprintln!("loop_on_heap with magic value: {}", _magic);
     loop {
-        thread::yield_now();
+        thread::sleep_ms(10);
     }
 }
 
@@ -114,7 +114,7 @@ fn multiple_page_test(_magic: String, _nomagic: String) {
     eprintln!("magic pointer: {:p}", hugemap.as_ptr());
 
     loop {
-        thread::yield_now();
+        thread::sleep_ms(10);
     }
 }
 
