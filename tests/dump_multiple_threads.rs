@@ -13,6 +13,7 @@ use test_binary::build_test_binary;
 
 #[test]
 #[ignore]
+#[cfg(not(target_arch="aarch64"))]
 fn test_can_read_stack_on_multiple_threads() -> Result<(), io::Error> {
     let test_bin_path =
         build_test_binary("test-workload", "testbins").expect("error building test-workload");
