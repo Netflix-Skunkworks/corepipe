@@ -56,7 +56,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     load_sysconfs().context("Failed to load sysconf data")?;
 
     let nixpid = Pid::from_raw(pid);
-    debug!("performing ptrace attach/sieze...");
+    debug!("performing ptrace attach/seize...");
     ptrace::ptrace_attach_all(nixpid).context("could not ptrace attach to all targets")?;
 
     info!("halted.");
