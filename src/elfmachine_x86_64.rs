@@ -29,7 +29,7 @@ pub fn collect_per_task_note_specs(process: &Process) -> Result<Vec<ElfNoteSpec>
 
     if let Some(s) = xsave_register_size {
         specs.push(ElfNoteSpec{size: s});
-    } 
+    }
 
     specs.push(ElfNoteSpec{size: size_of::<libc::siginfo_t>()});
 
@@ -37,23 +37,19 @@ pub fn collect_per_task_note_specs(process: &Process) -> Result<Vec<ElfNoteSpec>
 }
 
 pub fn collect_task_notes(task: &Task) -> Result<Vec<ElfNote>, Box<dyn std::error::Error>> {
-    let fp_registers = ptrace_get_regset(&task, NT_PRFPREG, size_of::<user_fpregs_struct>())
+    let fp_registers = ptrace_get_regset(task, NT_PRFPREG, size_of::<user_fpregs_struct>())
         .context("should be able to read fpregset for thread")?.unwrap();
 
-    let x86_state_size = get_xsave_area_size(task).unwrap();
-    let xsave_registers = ptrace_get_regset(&task, NT_X86_XSTATE, x86_state_size)
-        .context("should be able to read xsave registers for thread")?;
-
-    let regs_mem = ptrace_get_regset(&task, NT_PRSTATUS, size_of::<user_regs_struct>())
+    let regs_mem = ptrace_get_regset(task, NT_PRSTATUS, size_of::<user_regs_struct>())
         .context("should be able to read normal registers for thread")?;
     let regs_mem_u = regs_mem.unwrap();
     let (_, regs, _) = unsafe { regs_mem_u.align_to::<user_regs_struct>() };
 
-    let prs = load_prstatus_for_task(&task, regs[0])
+    // prstatus is an odd note, in that it's not a direct copy of the registers,
+    // but rather a copy of the registers plus some extra information.
+    let prs = load_prstatus_for_task(task, regs[0])
         .context("should have been able to read proc/stat and proc/status for thread")?;
     let prstatus_v = prstatus_to_bytes(&prs).to_vec();
-
-    let siginfo = ptrace_getsiginfo(&task);
 
     let mut notes = Vec::new();
     notes.push(ElfNote {
@@ -70,15 +66,20 @@ pub fn collect_task_notes(task: &Task) -> Result<Vec<ElfNote>, Box<dyn std::erro
             friendly: "thread fpregset",
         });
 
-    if let Some(regs) = xsave_registers {
+    if let Some(xsave_size) = get_xsave_area_size(task) {
+        let xsave_registers = ptrace_get_regset(task, NT_X86_XSTATE, xsave_size)
+            .context("should be able to read xsave registers for thread")?
+            .unwrap();
+
         notes.push(ElfNote {
                 note_name: crate::write_elf::NOTE_NAME_LINUX,
                 note_type: libelf_sys::NT_X86_XSTATE,
-                description: regs,
+                description: xsave_registers,
                 friendly: "thread regset",
             });
     }
 
+    let siginfo = ptrace_getsiginfo(task);
     notes.push(ElfNote {
             note_name: NOTE_NAME_CORE,
             note_type: NT_SIGINFO,
@@ -89,16 +90,23 @@ pub fn collect_task_notes(task: &Task) -> Result<Vec<ElfNote>, Box<dyn std::erro
     Ok(notes)
 }
 
+// check if the hardware supports xsave instruction
+// and if so, get the size of the xsave area
+// note esp some westmere cpus do not support xsave
 fn get_xsave_area_size(task: &Task) -> Option<usize> {
-    use once_cell::sync::Lazy;
     use raw_cpuid::CpuId;
 
-    let xsave_size = Lazy::new(|| {
-        trace!("ptrace_get_regset_size x86_64 for task: {} (will be cached)", task.tid);
+    trace!("get_xsave_area_size x86_64 for task: {}", task.tid);
 
-        let cpuid = CpuId::new();
-        Some(cpuid.get_extended_state_info().map(|f| f.xsave_area_size_enabled_features()).unwrap() as usize)
-    });
-
-    *xsave_size
+    let cpuid = CpuId::new();
+    cpuid.get_extended_state_info()
+        .filter(|ext| ext.has_xsaveopt())
+        .and_then(|ext| {
+            let size = ext.xsave_area_size_enabled_features();
+            if size > 0 {
+                Some(size as usize)
+            } else {
+                None
+            }
+        })
 }
