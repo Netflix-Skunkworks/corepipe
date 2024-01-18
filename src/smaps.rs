@@ -120,6 +120,7 @@ pub struct SmapRange {
     pub flag_hg: bool,
     pub flag_nh: bool,
     pub flag_mg: bool,
+    pub flag_wf: bool,
 }
 
 impl SmapRange {
@@ -361,6 +362,7 @@ fn parse_smaps_vmflags_line_into(line: &str, range: &mut SmapRange) {
             "hg" => range.flag_hg = true,
             "nh" => range.flag_nh = true,
             "mg" => range.flag_mg = true,
+            "wf" => range.flag_wf = true,
             "" => {}
             flag => eprintln!("skipping vmflag: {}", flag),
         }
