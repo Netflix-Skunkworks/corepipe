@@ -337,7 +337,7 @@ pub fn create_program_header_note_section(
     notesize += SIZEOF_NHDR + NAMESZ + align_4(size_of::<Prpsinfo>());
 
     for spec in note_specs {
-        notesize += num_tasks * SIZEOF_NHDR + NAMESZ + align_4(spec.size);
+        notesize += num_tasks * (SIZEOF_NHDR + NAMESZ + align_4(spec.size));
     }
 
     // NT_AUXV
