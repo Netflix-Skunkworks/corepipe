@@ -35,6 +35,13 @@ enum Commands {
         #[arg(long)]
         nomagic: String,
     },
+    MultipleThreadsTest {
+        /// magic value
+        #[arg(long)]
+        magic: i32,
+        #[arg(long)]
+        threads: i32,
+    },
 }
 
 fn main() {
@@ -45,6 +52,9 @@ fn main() {
         Some(Commands::LoopOnStack { magic }) => loop_on_stack(*magic),
         Some(Commands::MultiplePageTest { magic, nomagic }) => {
             multiple_page_test(magic.to_string(), nomagic.to_string())
+        }
+        Some(Commands::MultipleThreadsTest { magic, threads }) => {
+            multiple_threads_test(*magic, *threads)
         }
         None => {}
     }
@@ -106,4 +116,17 @@ fn multiple_page_test(_magic: String, _nomagic: String) {
     loop {
         thread::yield_now();
     }
+}
+
+#[inline(never)]
+fn multiple_threads_test(magic: i32, threads: i32) {
+    eprintln!("multiple_threads_test with magic value: {} and thread count: {}", magic, threads);
+
+    for t in 0..threads {
+        eprintln!("spawning thread {}", t);
+        thread::spawn(move || {
+            loop_on_stack(magic);
+        });
+    }
+    loop {}
 }
