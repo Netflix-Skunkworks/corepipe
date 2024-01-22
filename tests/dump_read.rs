@@ -15,7 +15,6 @@ use test_binary::build_test_binary;
 #[test]
 #[ignore]
 #[timeout(20000)]
-#[cfg(not(target_arch="aarch64"))]
 fn test_can_read_stack() -> Result<(), io::Error> {
     let test_bin_path =
         build_test_binary("test-workload", "testbins").expect("error building test-workload");
@@ -81,7 +80,6 @@ fn test_can_read_stack() -> Result<(), io::Error> {
 #[test]
 #[ignore]
 #[timeout(20000)]
-#[cfg(not(target_arch="aarch64"))]
 fn test_can_read_heap() -> Result<(), io::Error> {
     let test_bin_path =
         build_test_binary("test-workload", "testbins").expect("error building test-workload");

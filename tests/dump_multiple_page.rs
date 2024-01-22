@@ -15,7 +15,6 @@ use test_binary::build_test_binary;
 #[test]
 #[ignore]
 #[timeout(20000)]
-#[cfg(not(target_arch="aarch64"))]
 fn test_can_read_large_page() -> Result<(), io::Error> {
     let test_bin_path =
         build_test_binary("test-workload", "testbins").expect("error building test-workload");
@@ -89,7 +88,6 @@ fn test_can_read_large_page() -> Result<(), io::Error> {
 #[test]
 #[ignore]
 #[timeout(20000)]
-#[cfg(not(target_arch="aarch64"))]
 fn test_cannot_read_dont_dump_page() -> Result<(), io::Error> {
     let test_bin_path =
         build_test_binary("test-workload", "testbins").expect("error building test-workload");
