@@ -81,7 +81,7 @@ pub fn collect_task_notes(task: &Task) -> Result<Vec<ElfNote>, Box<dyn std::erro
                 note_name: NOTE_NAME_LINUX,
                 note_type: NT_ARM_PAC_MASK,
                 description: pac_mask,
-                friendly: "thread user_fpsimd_struct",
+                friendly: "nt_arm_pac_mask",
             });
         },
         _ => {},
