@@ -50,7 +50,7 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: build in arm64 container
-        uses: uraimo/run-on-arch-action@v2.6.0
+        uses: uraimo/run-on-arch-action@v2.7.1
         with:
           arch: aarch64
           distro: ubuntu22.04
