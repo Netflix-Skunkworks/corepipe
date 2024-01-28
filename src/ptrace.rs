@@ -143,6 +143,14 @@ pub fn ptrace_get_regset(task: &Task, regset: u32, size: usize) -> Result<Option
     let e: i32 = errno::errno();
 
     if ptrace_res != -1 {
+        // if iovec.iov_len < size {
+        //     warn!(
+        //         "ptrace_get_regset for task: {} returned {} bytes, expected {}",
+        //         task.tid,
+        //         iovec.iov_len,
+        //         size
+        //     );
+        // }
         Ok(Some((registers[..iovec.iov_len]).to_vec()))
     } else {
         Err(errno::from_i32(e))
