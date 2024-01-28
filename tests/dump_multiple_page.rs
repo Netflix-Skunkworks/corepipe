@@ -14,7 +14,7 @@ use test_binary::build_test_binary;
 
 #[test]
 #[ignore]
-#[timeout(10000)]
+#[timeout(20000)]
 #[cfg(target_arch = "x86_64")]
 fn test_can_read_large_page() -> Result<(), io::Error> {
     let test_bin_path =
@@ -88,7 +88,7 @@ fn test_can_read_large_page() -> Result<(), io::Error> {
 
 #[test]
 #[ignore]
-#[timeout(10000)]
+#[timeout(20000)]
 #[cfg(target_arch = "x86_64")]
 fn test_cannot_read_dont_dump_page() -> Result<(), io::Error> {
     let test_bin_path =

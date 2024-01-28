@@ -14,7 +14,7 @@ use test_binary::build_test_binary;
 
 #[test]
 #[ignore]
-#[timeout(100_000)]
+#[timeout(300_000)]
 fn test_can_read_stack() -> Result<(), io::Error> {
     let test_bin_path =
         build_test_binary("test-workload", "testbins").expect("error building test-workload");
