@@ -151,8 +151,7 @@ pub fn ptrace_get_regset(task: &Task, regset: u32, size: usize) -> Result<Option
                 size
             );
         }
-        Ok(Some((registers[..size]).to_vec()))
-        // Ok(Some((registers[..iovec.iov_len]).to_vec()))
+        Ok(Some((registers[..iovec.iov_len]).to_vec()))
     } else {
         Err(errno::from_i32(e))
     }
