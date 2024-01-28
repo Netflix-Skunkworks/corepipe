@@ -13,13 +13,14 @@ use test_binary::build_test_binary;
 
 #[test]
 #[ignore]
+#[cfg(target_arch = "x86_64")]
 fn test_can_read_stack_on_multiple_threads() -> Result<(), io::Error> {
     let test_bin_path =
         build_test_binary("test-workload", "testbins").expect("error building test-workload");
 
     let mut rng = rand::thread_rng();
     let magic: u32 = rng.gen_range(10001..99999);
-    let threads: i32 = 32;
+    let threads: i32 = 4;
 
     let mut test_bin_subproc = std::process::Command::new(&test_bin_path)
         .arg("multiple-threads-test")

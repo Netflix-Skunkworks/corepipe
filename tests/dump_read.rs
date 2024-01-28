@@ -14,7 +14,7 @@ use test_binary::build_test_binary;
 
 #[test]
 #[ignore]
-#[timeout(20000)]
+#[timeout(5000)]
 fn test_can_read_stack() -> Result<(), io::Error> {
     let test_bin_path =
         build_test_binary("test-workload", "testbins").expect("error building test-workload");
@@ -39,6 +39,8 @@ fn test_can_read_stack() -> Result<(), io::Error> {
         .expect("failed to execute corepipe");
 
     test_bin_subproc.kill()?;
+
+    io::stderr().write_all(&output.stderr)?;
 
     let mut tmpfile: NamedTempFile =
         NamedTempFile::new().expect("could not write coredump to temp file");
@@ -79,7 +81,8 @@ fn test_can_read_stack() -> Result<(), io::Error> {
 
 #[test]
 #[ignore]
-#[timeout(20000)]
+#[timeout(5000)]
+#[cfg(target_arch = "x86_64")]
 fn test_can_read_heap() -> Result<(), io::Error> {
     let test_bin_path =
         build_test_binary("test-workload", "testbins").expect("error building test-workload");

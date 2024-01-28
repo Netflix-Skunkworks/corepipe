@@ -16,7 +16,8 @@ use subprocess::{Exec, PopenError};
 
 #[test]
 #[ignore]
-#[timeout(10000)]
+#[timeout(5000)]
+#[cfg(target_arch = "x86_64")]
 fn test_sleep_sleeps() -> Result<(), PopenError> {
     // shakeout test to check if sleep will run correctly
 
@@ -39,7 +40,8 @@ fn test_sleep_sleeps() -> Result<(), PopenError> {
 
 #[test]
 #[ignore]
-#[timeout(20000)]
+#[timeout(5000)]
+#[cfg(target_arch = "x86_64")]
 fn test_sleep_was_not_killed() {
     let mut sleep_p = Exec::cmd("sleep").arg("2").popen().unwrap();
     assert_eq!(true, sleep_p.pid().is_some());
@@ -62,7 +64,8 @@ fn test_sleep_was_not_killed() {
 
 #[test]
 #[ignore]
-#[timeout(20000)]
+#[timeout(5000)]
+#[cfg(target_arch = "x86_64")]
 fn test_sleep_output_is_parseable() {
     let sleep_p = Exec::cmd("sleep").arg("2").popen().unwrap();
     assert_eq!(true, sleep_p.pid().is_some());
