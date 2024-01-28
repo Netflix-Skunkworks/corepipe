@@ -20,7 +20,7 @@ fn test_can_read_stack_on_multiple_threads() -> Result<(), io::Error> {
 
     let mut rng = rand::thread_rng();
     let magic: u32 = rng.gen_range(10001..99999);
-    let threads: i32 = 4;
+    let threads: i32 = 6;
 
     let mut test_bin_subproc = std::process::Command::new(&test_bin_path)
         .arg("multiple-threads-test")
