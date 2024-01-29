@@ -63,3 +63,8 @@ jobs:
             cargo build
             cargo test
 
+            # we can only run basic tests, ptrace is not implemented on qemu
+            # which means that the full integration tests fail in the run-on-arch-action
+
+            # TODO enable integration tests on aarch64 when GH has a better solution for it
+
