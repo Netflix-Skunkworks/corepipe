@@ -9,43 +9,23 @@ on:
       - v[0-9]+.*
 
 jobs:
-  create-release:
+  release:
+    name: release ${{ matrix.target }}
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: taiki-e/create-gh-release-action@v1
-        with:
-          # (optional) Path to changelog.
-          #changelog: CHANGELOG.md
-          # (required) GitHub token for creating GitHub Releases.
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-  upload-assets:
-    needs: create-release
-
     strategy:
+      fail-fast: false
       matrix:
         include:
-          - target: aarch64-unknown-linux-gnu
-            os: ubuntu-22.04
-          - target: x86_64-unknown-linux-gnu
-            os: ubuntu-22.04
-
-    runs-on: ${{ matrix.os }}
+          - target: x86_64-unknown-linux-musl
+            archive: tar.gz
     steps:
-      - uses: actions/checkout@v4
-      - name: Install cross-compilation tools
-        uses: taiki-e/setup-cross-toolchain-action@v1
+      - uses: actions/checkout@master
+      - name: Compile and release
+        uses: rust-build/rust-build.action@v1.4.4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          target: ${{ matrix.target }}
-        if: startsWith(matrix.os, 'ubuntu')
-      - uses: taiki-e/upload-rust-binary-action@v1
-        with:
-          # (required) Comma-separated list of binary names (non-extension portion of filename) to build and upload.
-          # Note that glob pattern is not supported yet.
-          bin: corepipe
-          # (optional) Target triple, default is host triple.
-          #target: ${{ matrix.target }}
-          # (required) GitHub token for uploading assets to GitHub Releases.
-          token: ${{ secrets.GITHUB_TOKEN }}
+          RUSTTARGET: ${{ matrix.target }}
+          ARCHIVE_TYPES: ${{ matrix.archive }}
+          PRE_BUILD: scripts/prebuild.sh
 
