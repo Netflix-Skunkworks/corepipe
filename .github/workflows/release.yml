@@ -36,12 +36,12 @@ jobs:
       run: |
         cargo clean
         cargo build --release
-        tar czf corepipe-linux_x86_64-${{ github.ref }}.tar.gz -C target/release/ corepipe
+        tar czf corepipe-linux_x86_64-${{ github.ref_name }}.tar.gz -C target/release/ corepipe
 
     - name: Release
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          corepipe-linux_x86_64-${{ github.ref }}.tar.gz
+          corepipe-linux_x86_64-${{ github.ref_name }}.tar.gz
 
 
